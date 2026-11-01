@@ -1,71 +1,74 @@
-# Laboratorio: LangGraph + MCP + Supabase PostgreSQL
+# Práctica: agente con LangGraph, MCP y Supabase
 
-Proyecto docente con chat web, consultas de inventario y reservas confirmadas.
-Sin n8n. El servidor MCP usa stdio y lo inicia el backend automáticamente.
+**Objetivo:** consultar productos y reservar con confirmación humana.
 
-## Guía completa
+**Necesitas:** Python 3.12, el proyecto corregido entregado por el docente, una cuenta de Supabase y una clave de Groq. Este README acompaña al código; no lo reemplaza.
 
-Lee `GUIA_PRACTICA.md` en orden. Incluye Supabase, Windows, Linux/macOS,
-modo demo, modo IA, autenticación real, pruebas, evaluación y adaptación.
+## 1. Instalar
 
-## Inicio rápido (Windows PowerShell)
+Descomprime el proyecto corregido y abre PowerShell dentro de `practica_agentes`, donde está `run.py`.
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
-Copy-Item .env.example .env
+Copy-Item .env.examp
 ```
 
-1. En Supabase SQL Editor ejecuta `sql/01_schema.sql`.
-2. Copia la URI de **Session pooler** al archivo `.env`.
-3. Genera el token demo y reemplaza el marcador de `.env`:
+Si ya existe `.env`, conserva tu configuración y omite el último comando.
+
+## 2. Preparar Supabase
+
+1. Crea un proyecto y ejecuta `sql/01_schema.sql` en **SQL Editor**.
+2. En **Connect > Session pooler**, copia la URI PostgreSQL y coloca la contraseña.
+3. Pega esa URI en `DATABASE_URL` de `.env`. Mantén `sslmode=require`.
+
+## 3. Configurar `.env`
+
+Obtén una clave en https://console.groq.com/keys y completa:
+
+```dotenv
+DATABASE_URL=URI_POSTGRESQL_DE_TU_SUPABASE
+AUTH_MODE=demo
+DEMO_TOKEN=REEMPLAZAR_POR_TOKEN_ALEATORIO
+DEMO_USER_ID=11111111-1111-4111-8111-111111111111
+MODEL_MODE=real
+LLM_API_KEY=TU_CLAVE_GROQ
+LLM_MODEL=openai/gpt-oss-20b
+LLM_BASE_URL=https://api.groq.com/openai/v1
+```
+
+Genera el token y pega el resultado en `DEMO_TOKEN`:
 
 ```powershell
 .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(32))"
-.\.venv\Scripts\python.exe check_db.py
-.\.venv\Scripts\python.exe check_mcp.py
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Abre http://127.0.0.1:8000, pega el token y pulsa Conectar.
-Escribe `stock TEC-01` y `reserva 2 TEC-01`. Usa los botones para aprobar o cancelar.
-El modo demo no consume ni representa un modelo de IA.
-
-Para IA real: detén el proceso, configura `MODEL_MODE=real`, `LLM_API_KEY`
-y `LLM_MODEL`, reinicia y abre una conversación nueva.
-Para cuentas reales configura `AUTH_MODE=supabase` y sigue la guía.
-
-## Linux y macOS
-
-Usa `python3.12 -m venv .venv`, `.venv/bin/python` en lugar del ejecutable
-Windows y `cp .env.example .env` para copiar el ejemplo.
-
-## Verificación
+## 4. Ejecutar
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe run.py
 ```
 
-Las pruebas de integración requieren una base PostgreSQL de pruebas y
-`RUN_DB_TESTS=1`. Consulta el capítulo 18 antes de habilitarlas.
+Abre **http://127.0.0.1:8000**, introduce tu `DEMO_TOKEN` y pulsa **Conectar**. Mantén la terminal abierta.
 
-## Modelo y versiones
+## 5. Probar
 
-El adaptador ChatOpenAI necesita un modelo con tool calling. El proveedor y
-el identificador son configurables. La API de IA puede tener costo independiente.
-MCP se fija a 1.x deliberadamente. No mezcles imports de 2.x con esta práctica.
-El archivo lock reproduce el entorno de referencia Python 3.12.
+1. Escribe: **Busca un teclado y dime su stock**.
+2. Escribe: **Reserva dos teclados USB**.
+3. Pulsa **Confirmar reserva** en el recuadro. No escribas la confirmación como mensaje.
+4. Consulta el stock: debe disminuir en dos unidades.
+5. Propón otra reserva y pulsa **Cancelar**: el stock no debe cambiar.
 
-## Alcance
+## Si falla
 
-Un proceso local. No publicar directamente. El bloqueo de ejecución vive en
-ese proceso. El backend valida propietario y la base controla transacciones.
-La credencial PostgreSQL de la práctica es de servidor y puede eludir RLS:
-no debe aparecer en navegador ni repositorio.
+- **Modo demo:** verifica `MODEL_MODE=real` y reinicia el servidor.
+- **409:** confirma o cancela con los botones. Si el hilo quedó fallido, pulsa **Nueva conversación**.
+- **MCP o base de datos:** ejecuta `check_db.py` y `check_mcp.py` con el Python de `.venv`.
+- **ProactorEventLoop en Windows:** utiliza los archivos corregidos del docente, incluido `run.py`.
+- **503 del proveedor:** espera o prueba otro modelo disponible en tu cuenta.
 
-`proponer_reserva` es una herramienta de aplicación para el modelo.
-`registrar_reserva` es la herramienta MCP que solo ejecuta el nodo autorizado.
-Los checkpoints persisten memoria por conversación, no preferencias entre hilos.
+## Entrega
 
-No se incluyen claves, cuentas ni una instancia Supabase preconfigurada.
-Consulta `docs/VALIDACION.md` para el alcance exacto de las pruebas realizadas.
+Código sin `.env`, una captura de consulta, una reserva confirmada, una cancelación y una explicación breve de la herramienta MCP utilizada.
+
+**Alcance:** práctica local con un usuario demo por instalación. No compartas claves. Groq tiene cuotas de uso; cada equipo verifica las disponibles en su cuenta.
