@@ -72,3 +72,19 @@ Abre **http://127.0.0.1:8000**, introduce tu `DEMO_TOKEN` y pulsa **Conectar**. 
 Código sin `.env`, una captura de consulta, una reserva confirmada, una cancelación y una explicación breve de la herramienta MCP utilizada.
 
 **Alcance:** práctica local con un usuario demo por instalación. No compartas claves. Groq tiene cuotas de uso; cada equipo verifica las disponibles en su cuenta.
+
+uedes desplegarlo gratis en Render como Web Service. Admite Python y FastAPI; tu base de datos puede continuar en Supabase. Render Docs
+
+Para tu proyecto:
+1. Sube el código a GitHub, sin .env ni .venv.
+2. En Render selecciona New → Web Service y conecta el repositorio.
+3. Elige el plan Free.
+4. Configura:
+Build Command:
+pip install -r requirements-lock.txt
+
+Start Command:
+uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+
+Render requiere escuchar en 0.0.0.0 y en el puerto asignado. En Render utiliza ese comando, no el run.py local. Render Docs
+5. Agrega las variables de .env en Environment de Render.
