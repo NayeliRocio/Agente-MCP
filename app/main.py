@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 import httpx
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import FileResponse
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.types import Command
 from psycopg_pool import AsyncConnectionPool
@@ -48,6 +48,10 @@ class Confirmation(BaseModel):
     approved:bool
     confirmation_id:UUID
 
+class ReservationProposal(BaseModel):
+    product_id:str=Field(min_length=1,max_length=100)
+    quantity:int=Field(ge=1,le=100,strict=True)
+
 @app.get('/')
 async def index():
     return FileResponse(Path(__file__).with_name('index.html'))
@@ -61,6 +65,45 @@ async def health():
     async with connect() as c:
         await c.execute('select 1')
     return {'ok':True}
+
+@app.get('/products')
+async def products(user:str=Depends(current_user)):
+    async with connect() as c:
+        cur=await c.execute('select id,name,stock from agentlab.products order by name')
+        return {'products':await cur.fetchall()}
+
+@app.get('/reservations')
+async def reservations(user:str=Depends(current_user)):
+    async with connect() as c:
+        cur=await c.execute("""
+            select c.id as confirmation_id, c.product_id, p.name, c.quantity,
+                   case when r.id is not null then 'confirmed'
+                        when c.status='cancelled' then 'cancelled'
+                        when c.expires_at<=now() then 'expired'
+                        else 'pending' end as status,
+                   r.id as reservation_id, c.conversation_id,
+                   coalesce(r.created_at,c.expires_at-interval '10 minutes') as created_at
+            from agentlab.confirmations c
+            join agentlab.products p on p.id=c.product_id
+            left join agentlab.reservations r on r.confirmation_id=c.id
+            where c.user_id=%s
+            order by created_at desc, c.id desc limit 100
+        """,(user,))
+        return {'reservations':await cur.fetchall()}
+
+@app.get('/conversations')
+async def conversations(user:str=Depends(current_user)):
+    async with connect() as c:
+        cur=await c.execute("""
+            select c.id,c.created_at,coalesce(m.content,'Nueva conversación') as title
+            from agentlab.conversations c
+            left join lateral (
+                select content from agentlab.messages
+                where conversation_id=c.id and role='user' order by id limit 1
+            ) m on true
+            where c.user_id=%s order by c.created_at desc limit 30
+        """,(user,))
+        return {'conversations':await cur.fetchall()}
 
 @app.post('/login')
 async def login(body:Login):
@@ -104,7 +147,41 @@ async def create(user:str=Depends(current_user)):
 @app.get('/conversations/{cid}')
 async def get(cid:UUID,user:str=Depends(current_user)):
     await owner(cid,user)
-    return await render(cid)
+    response=await render(cid)
+    async with connect() as c:
+        cur=await c.execute('select role,content,created_at from agentlab.messages '
+                            'where conversation_id=%s order by id',(str(cid),))
+        response['messages']=await cur.fetchall()
+    return response
+
+@app.post('/conversations/{cid}/reserve')
+async def propose(cid:UUID,body:ReservationProposal,user:str=Depends(current_user)):
+    await owner(cid,user)
+    async with run_lock:
+        graph=app.state.graph
+        snapshot=await graph.aget_state(cfg(cid))
+        if snapshot.next:
+            raise HTTPException(409,'Confirma o cancela la operación pendiente primero.')
+        text=f'Reserva {body.quantity} unidades de {body.product_id}.'
+        # Los botones entran al mismo grafo, validación MCP y aprobación humana.
+        # Ninguna escritura de reserva se realiza en este endpoint.
+        proposal=AIMessage(content='',tool_calls=[{
+            'id':str(uuid4()),'name':'proponer_reserva',
+            'args':{'producto_id':body.product_id,'cantidad':body.quantity}}])
+        await log_message(cid,'user',text)
+        try:
+            await graph.aupdate_state(cfg(cid),{
+                'messages':[HumanMessage(content=text),proposal],
+                'user_id':user,'conversation_id':str(cid),
+                'pending':None,'approved':False,'result':{}},as_node='planner')
+            await graph.ainvoke(None,cfg(cid))
+        except Exception:
+            logging.exception('Fallo al proponer reserva')
+            raise HTTPException(503,'No se pudo preparar la reserva. Consulta el estado antes de repetir.')
+        response=await render(cid)
+        await log_message(cid,'assistant','Revisa la propuesta para confirmar la reserva.'
+                          if response['pending'] else response['reply'])
+        return response
 
 @app.post('/conversations/{cid}/messages')
 async def chat(cid:UUID,body:Chat,user:str=Depends(current_user)):

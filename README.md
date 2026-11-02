@@ -2,6 +2,26 @@
 
 **Objetivo:** consultar productos y reservar con confirmación humana.
 
+**Entrega de la práctica:** [explicación de MCP, capturas y validación](docs/ENTREGA.md).
+
+## Interfaz Nexo
+
+La aplicación incluye un catálogo con existencias reales, selector de cantidad,
+botones para reservar y un chat con historial de conversaciones.
+
+1. Conecta con tu token local de práctica.
+2. Elige la cantidad en la tarjeta del producto y pulsa **Reservar**.
+3. Revisa el producto y la cantidad en el recuadro del chat.
+4. Pulsa **Confirmar reserva** para registrar la operación, o **Cancelar** para
+   descartar la propuesta sin descontar stock.
+5. Consulta **Mis reservas** y sus filtros. El catálogo y el historial se
+   actualizan después de cada operación; también puedes pulsar **Actualizar stock**.
+
+Las conversaciones recientes permiten recuperar mensajes y propuestas pendientes.
+También puedes solicitar reservas escribiendo al asistente. Los botones utilizan
+el mismo flujo LangGraph, la consulta MCP y el punto de confirmación del chat.
+El historial muestra únicamente las operaciones de la cuenta conectada.
+
 **Necesitas:** Python 3.12, el proyecto corregido entregado por el docente, una cuenta de Supabase y una clave de Groq. Este README acompaña al código; no lo reemplaza.
 
 ## 1. Instalar
@@ -11,7 +31,7 @@ Descomprime el proyecto corregido y abre PowerShell dentro de `practica_agentes`
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
-Copy-Item .env.examp
+Copy-Item .env.example .env
 ```
 
 Si ya existe `.env`, conserva tu configuración y omite el último comando.

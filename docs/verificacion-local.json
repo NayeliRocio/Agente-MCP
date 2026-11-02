@@ -1,0 +1,18 @@
+{
+  "conversation_id": "7e2d6f74-bbef-455f-967e-48b4753917b1",
+  "stock_inicial": 12,
+  "stock_final": 10,
+  "propuesta_no_modifica_stock": true,
+  "confirmacion": {
+    "conversation_id": "7e2d6f74-bbef-455f-967e-48b4753917b1",
+    "pending": null,
+    "reply": "Reserva registrada: d9e8d94c-4536-4c36-9243-e0f9e2c290ce. Producto: TEC-01. Cantidad: 2."
+  },
+  "confirmacion_repetida_no_duplica": true,
+  "cancelacion": {
+    "conversation_id": "7e2d6f74-bbef-455f-967e-48b4753917b1",
+    "pending": null,
+    "reply": "No se registró la reserva: cancelaste la operación o la confirmación venció."
+  },
+  "modo": "real"
+}
